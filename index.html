@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2F5D3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Érablière">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Érablière – suivi des placettes</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4EF; --panel:#FFFFFF; --ink:#1C2B21; --muted:#617064; --line:#D6DDD4;
+  --moss:#2F5D3A; --moss-2:#5E9A4F; --leaf:#E3ECD3; --sap:#C8A13A; --maple:#B5462B; --maple-2:#F3E3D6;
+  --display:"Bricolage Grotesque", "Avenir Next Condensed", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --nav-h:64px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131A15; --panel:#1B241E; --ink:#E6ECE4; --muted:#9AA89C; --line:#2E3A31;
+    --moss:#7FBF72; --moss-2:#5E9A4F; --leaf:#243226; --sap:#D9B656; --maple:#E07A5A; --maple-2:#3A2620;
+  }
+}
+*{box-sizing:border-box}
+html{height:100%; -webkit-text-size-adjust:100%}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:3px solid var(--sap); outline-offset:2px}
+.wrap{max-width:760px; margin:0 auto; padding:0 16px}
+
+/* Header */
+header.top{padding:18px 16px 6px; max-width:760px; margin:0 auto}
+header.top h1{font-family:var(--display); font-weight:800; font-size:2.4rem; line-height:1; margin:0; letter-spacing:-.02em; color:var(--moss)}
+header.top p{margin:6px 0 0; color:var(--muted)}
+
+h2{font-family:var(--display); font-weight:700; font-size:1.35rem; margin:28px 0 4px; letter-spacing:-.01em}
+h2 + .sub{margin:0 0 12px; color:var(--muted); font-size:.92rem}
+.view{display:none; padding-bottom:24px}
+.view.on{display:block}
+
+/* Segmented control */
+.seg{display:flex; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px; margin:14px 0 12px; gap:2px}
+.seg button{flex:1; border:0; background:transparent; padding:8px 6px; border-radius:999px; font-size:.86rem; cursor:pointer; color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--moss); color:#fff; font-weight:700}
+
+/* Map hero */
+.hero{display:grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap:14px; align-items:start}
+.mapbox svg{width:100%; height:auto; display:block}
+.plot{cursor:pointer}
+.plot:focus{outline:none}
+.plot:focus-visible rect.bg{stroke:var(--sap); stroke-width:4}
+.side{display:flex; flex-direction:column; gap:14px; position:sticky; top:12px}
+.kpi{border-left:3px solid var(--moss); padding:2px 0 2px 10px}
+.kpi.red{border-color:var(--maple)}
+.kpi .v{font-family:var(--display); font-weight:800; font-size:1.7rem; line-height:1.05}
+.kpi .v small{font-size:.9rem; font-weight:500; color:var(--muted)}
+.kpi .l{font-size:.82rem; color:var(--muted)}
+.legend{font-size:.8rem; color:var(--muted)}
+.legend .bar{height:10px; border-radius:5px; margin:4px 0 2px}
+.legend .ends{display:flex; justify-content:space-between}
+.hint{font-size:.82rem; color:var(--muted)}
+
+/* Panels & charts */
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+.chart svg{width:100%; height:auto; display:block}
+.chart text{font-family:var(--body)}
+.empty{color:var(--muted); font-size:.92rem; padding:18px 4px}
+
+/* Forms */
+form .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+label{display:block; font-size:.86rem; color:var(--muted); margin:12px 0 4px}
+input[type=date],input[type=number],input[type=text],select,textarea{width:100%; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font-size:1rem; min-height:46px}
+textarea{min-height:84px; resize:vertical}
+.stepper{display:flex; align-items:stretch; gap:6px}
+.stepper input{text-align:center; font-family:var(--display); font-weight:700; font-size:1.3rem}
+.stepper button{width:48px; border:1px solid var(--line); background:var(--panel); border-radius:10px; font-size:1.4rem; cursor:pointer}
+.circ{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.circ input{text-align:center; font-family:var(--display); font-weight:700; font-size:1.25rem}
+.circ .dia{font-size:.76rem; color:var(--muted); text-align:center; margin-top:3px; min-height:1.1em}
+.plotpick{display:flex; gap:6px}
+.plotpick select{flex:1; font-family:var(--display); font-weight:700; font-size:1.1rem}
+.plotpick button{width:48px; border:1px solid var(--line); background:var(--panel); border-radius:10px; cursor:pointer; font-size:1.1rem}
+.ref{font-size:.86rem; color:var(--muted); background:var(--leaf); border-radius:10px; padding:8px 10px; margin-top:8px}
+.btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.btn{border:0; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer; background:var(--moss); color:#fff; min-height:46px}
+.btn.alt{background:transparent; color:var(--moss); border:1.5px solid var(--moss)}
+.btn.red{background:var(--maple)}
+.btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line)}
+.chips{display:grid; grid-template-columns:repeat(auto-fill,minmax(44px,1fr)); gap:6px}
+.chips button{border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:9px 0; cursor:pointer; font-family:var(--display); font-weight:700}
+.chips button[aria-pressed="true"]{background:var(--maple); border-color:var(--maple); color:#fff}
+
+/* Lists */
+.list{list-style:none; margin:0; padding:0}
+.list li{display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:start; padding:12px 0; border-bottom:1px solid var(--line)}
+.list li:last-child{border-bottom:0}
+.tag{font-family:var(--display); font-weight:800; font-size:1.25rem; min-width:3.2ch; text-align:right; color:var(--maple)}
+.tag.g{color:var(--moss)}
+.tag.s{color:var(--sap); font-size:1rem; min-width:4ch}
+.pill{display:inline-block; font-size:.74rem; font-weight:700; padding:1px 8px; border-radius:999px; background:var(--leaf); color:var(--moss); margin-right:6px}
+.pill.i{background:var(--sap); color:#fff}
+.list .t{font-weight:700}
+.list .m{font-size:.86rem; color:var(--muted)}
+.list .n{font-size:.9rem; margin-top:2px; white-space:pre-wrap}
+.act{display:flex; gap:4px}
+.icon{border:0; background:transparent; padding:8px; border-radius:8px; cursor:pointer; color:var(--muted)}
+.icon svg{width:20px; height:20px; display:block}
+
+/* Bottom nav */
+nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--panel); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px); display:flex; justify-content:center}
+nav.tabs .in{display:flex; width:100%; max-width:760px}
+nav.tabs button{flex:1; border:0; background:transparent; height:var(--nav-h); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:.74rem; color:var(--muted); cursor:pointer}
+nav.tabs button svg{width:24px; height:24px}
+nav.tabs button[aria-current="page"]{color:var(--moss); font-weight:700}
+
+/* Dialog */
+dialog{border:0; padding:0; width:min(760px,100%); max-height:92vh; margin:auto auto 0; border-radius:18px 18px 0 0; background:var(--bg); color:var(--ink)}
+dialog::backdrop{background:rgba(10,20,12,.45)}
+dialog .dh{position:sticky; top:0; background:var(--bg); padding:16px 16px 8px; display:flex; justify-content:space-between; align-items:center; z-index:2}
+dialog .dh h3{font-family:var(--display); font-weight:800; font-size:1.7rem; margin:0; color:var(--moss)}
+dialog .db{padding:0 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.facts{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:6px 0 10px}
+
+.toast{position:fixed; left:50%; bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); opacity:0;
+  background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:12px; font-size:.92rem; transition:.25s; pointer-events:none; z-index:50; max-width:90vw}
+.toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
+.note{font-size:.9rem; color:var(--muted)}
+@media (min-width:720px){ .hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapbox{max-width:340px} }
+@media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Érablière</h1>
+  <p id="subtitle">19 placettes plantées en février 2007</p>
+</header>
+
+<main class="wrap">
+  <!-- PARCELLE -->
+  <section class="view on" id="v-parcelle" aria-label="Tableau de bord">
+    <div class="seg" role="group" aria-label="Couleur des placettes">
+      <button data-metric="circ" aria-pressed="true">Circonférence</button>
+      <button data-metric="count" aria-pressed="false">Érables</button>
+      <button data-metric="cut" aria-pressed="false">Dernière coupe</button>
+    </div>
+    <div class="hero">
+      <div class="mapbox" id="map"></div>
+      <div class="side">
+        <div class="legend" id="legend"></div>
+        <div id="kpis" style="display:flex;flex-direction:column;gap:14px"></div>
+        <p class="hint">Touchez une placette pour voir son historique. Les points figurent les 25 plants d'origine : pleins, les érables encore en place.</p>
+      </div>
+    </div>
+
+    <h2>Plus gros érables par placette</h2>
+    <p class="sub">Circonférence du plus gros arbre à la dernière mesure. Les traits marquent le 2<sup>e</sup> et le 3<sup>e</sup>.</p>
+    <div class="panel chart" id="ch-rank"></div>
+
+    <h2>Croissance</h2>
+    <p class="sub">Circonférence du plus gros arbre de chaque placette au fil des mesures, et moyenne de la parcelle.</p>
+    <div class="panel chart" id="ch-growth"></div>
+
+    <h2>Bois de chauffage prélevé</h2>
+    <p class="sub">Stères par année et cumul depuis la première éclaircie.</p>
+    <div class="panel chart" id="ch-wood-dash"></div>
+  </section>
+
+  <!-- MESURER -->
+  <section class="view" id="v-mesurer" aria-label="Saisir une mesure">
+    <h2 id="mform-title">Nouvelle mesure</h2>
+    <p class="sub">Une ligne par placette et par date. Mesurez la circonférence à 1,30 m.</p>
+    <form id="mform" class="panel" novalidate>
+      <div class="row">
+        <div>
+          <label for="m-date">Date</label>
+          <input type="date" id="m-date" required>
+        </div>
+        <div>
+          <label for="m-plot">Placette</label>
+          <div class="plotpick">
+            <select id="m-plot"></select>
+          </div>
+        </div>
+      </div>
+      <div class="ref" id="m-ref"></div>
+
+      <label for="m-count">Nombre d'érables dans la placette</label>
+      <div class="stepper">
+        <button type="button" data-step="-1" aria-label="Un de moins">−</button>
+        <input type="number" id="m-count" inputmode="numeric" min="0" max="25" step="1">
+        <button type="button" data-step="1" aria-label="Un de plus">+</button>
+      </div>
+
+      <label>Circonférence des plus gros érables (cm)</label>
+      <div class="circ">
+        <div><input type="number" id="m-c1" inputmode="decimal" min="0" step="0.5" placeholder="1er" aria-label="Circonférence du plus gros"><div class="dia" id="d-c1"></div></div>
+        <div><input type="number" id="m-c2" inputmode="decimal" min="0" step="0.5" placeholder="2e" aria-label="Circonférence du deuxième"><div class="dia" id="d-c2"></div></div>
+        <div><input type="number" id="m-c3" inputmode="decimal" min="0" step="0.5" placeholder="3e" aria-label="Circonférence du troisième"><div class="dia" id="d-c3"></div></div>
+      </div>
+
+      <label for="m-note">Remarques</label>
+      <textarea id="m-note" placeholder="État des arbres mesurés, de la placette…"></textarea>
+
+      <div class="btns">
+        <button type="submit" class="btn" data-next="0" id="m-save">Enregistrer</button>
+        <button type="submit" class="btn alt" data-next="1" id="m-save-next">Enregistrer et placette suivante</button>
+        <button type="button" class="btn ghost" id="m-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+
+    <h2>Dernières mesures</h2>
+    <p class="sub">Les 30 plus récentes. L'historique complet est dans la fiche de chaque placette.</p>
+    <div class="panel"><ul class="list" id="m-list"></ul></div>
+  </section>
+
+  <!-- BOIS -->
+  <section class="view" id="v-bois" aria-label="Bois prélevé">
+    <div id="wood-kpis" class="facts" style="margin-top:16px"></div>
+    <div class="panel chart" id="ch-wood"></div>
+
+    <h2 id="hform-title">Nouvelle campagne de prélèvement</h2>
+    <p class="sub">Éclaircie ou coupe de bois de chauffage.</p>
+    <form id="hform" class="panel" novalidate>
+      <div class="row">
+        <div>
+          <label for="h-date">Date</label>
+          <input type="date" id="h-date" required>
+        </div>
+        <div>
+          <label for="h-st">Volume (stères)</label>
+          <input type="number" id="h-st" inputmode="decimal" min="0" step="0.1" required>
+        </div>
+      </div>
+      <label>Placettes concernées <span class="note">(aucune sélection = toute la parcelle)</span></label>
+      <div class="chips" id="h-plots"></div>
+      <label for="h-note">Remarque</label>
+      <textarea id="h-note" placeholder="Temps passé, arbres abattus, élagage…"></textarea>
+      <div class="btns">
+        <button type="submit" class="btn red" id="h-save">Enregistrer la campagne</button>
+        <button type="button" class="btn ghost" id="h-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+
+    <h2>Campagnes</h2>
+    <div class="panel"><ul class="list" id="h-list"></ul></div>
+  </section>
+
+  <!-- CARNET -->
+  <section class="view" id="v-carnet" aria-label="Carnet">
+    <h2 id="nform-title">Nouvelle note</h2>
+    <p class="sub">Observations, travaux ou événements, pour une placette ou toute la parcelle.</p>
+    <form id="nform" class="panel" novalidate>
+      <div class="row" style="grid-template-columns:1fr; gap:0">
+        <div>
+          <label for="n-date">Date</label>
+          <input type="date" id="n-date" required>
+        </div>
+        <div>
+          <label for="n-plot">Concerne</label>
+          <select id="n-plot"></select>
+        </div>
+      </div>
+      <label>Type</label>
+      <div class="seg" role="group" aria-label="Type de note" style="margin:0" id="n-type">
+        <button type="button" data-ntype="note" aria-pressed="true">Observation</button>
+        <button type="button" data-ntype="intervention" aria-pressed="false">Intervention</button>
+      </div>
+      <label for="n-text">Note</label>
+      <textarea id="n-text" placeholder="Ex. dégâts de chevreuil sur 2 érables, chablis, élagage…"></textarea>
+      <div class="btns">
+        <button type="submit" class="btn" id="n-save">Enregistrer la note</button>
+        <button type="button" class="btn ghost" id="n-cancel" hidden>Annuler la modification</button>
+      </div>
+    </form>
+
+    <h2>Carnet</h2>
+    <div class="seg" role="group" aria-label="Filtrer le carnet" id="n-filter" style="margin-top:6px">
+      <button type="button" data-nf="all" aria-pressed="true">Tout</button>
+      <button type="button" data-nf="intervention" aria-pressed="false">Interventions</button>
+      <button type="button" data-nf="note" aria-pressed="false">Observations</button>
+    </div>
+    <div class="panel"><ul class="list" id="n-list"></ul></div>
+  </section>
+
+  <!-- DONNÉES -->
+  <section class="view" id="v-donnees" aria-label="Données">
+    <h2>Sauvegarde</h2>
+    <p class="sub">Les données sont enregistrées dans ce téléphone, dans le navigateur. Exportez régulièrement une sauvegarde : c'est elle qui vous permet de changer de téléphone ou de navigateur.</p>
+    <div class="panel">
+      <div class="btns" style="margin-top:0">
+        <button class="btn" id="exp-json">Exporter la sauvegarde</button>
+        <button class="btn alt" id="imp-json">Importer une sauvegarde</button>
+        <input type="file" id="imp-file" accept="application/json,.json" hidden>
+      </div>
+      <p class="note" id="last-export"></p>
+    </div>
+
+    <h2>Tableaux pour Excel ou Numbers</h2>
+    <p class="sub">Fichiers CSV séparés par des points-virgules.</p>
+    <div class="panel">
+      <div class="btns" style="margin-top:0">
+        <button class="btn alt" id="exp-csv-m">Mesures (CSV)</button>
+        <button class="btn alt" id="exp-csv-h">Prélèvements (CSV)</button>
+        <button class="btn alt" id="exp-csv-n">Carnet (CSV)</button>
+      </div>
+    </div>
+
+    <h2>Installer sur l'écran d'accueil</h2>
+    <p class="note">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ». L'application fonctionne ensuite sans réseau dans la plantation.</p>
+
+    <h2>Réinitialiser</h2>
+    <p class="note">Efface toutes les mesures et notes, et remet les données d'origine : campagnes de prélèvement 2019 à 2025 et élagage des élites de 2017.</p>
+    <div class="btns"><button class="btn ghost" id="reset">Tout réinitialiser</button></div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Navigation">
+  <div class="in">
+    <button data-view="parcelle" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="8.5" y="14" width="7" height="7" rx="1.5"/></svg>
+      Parcelle</button>
+    <button data-view="mesurer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M3 12v0M12 8v8M8 8.6v1.6M16 8.6v1.6"/></svg>
+      Mesurer</button>
+    <button data-view="bois">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="15" r="3.5"/><circle cx="17" cy="15" r="3.5"/><circle cx="12" cy="7.5" r="3.5"/><circle cx="7" cy="15" r="1"/><circle cx="17" cy="15" r="1"/><circle cx="12" cy="7.5" r="1"/></svg>
+      Bois</button>
+    <button data-view="carnet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M10 8h6M10 12h6M10 16h4"/></svg>
+      Carnet</button>
+    <button data-view="donnees">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>
+      Données</button>
+  </div>
+</nav>
+
+<dialog id="detail" aria-labelledby="d-title">
+  <div class="dh">
+    <h3 id="d-title">Placette</h3>
+    <button class="icon" id="d-close" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="db" id="d-body"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ---------- Constantes ---------- */
+const KEY = "erabliere.v1";
+const PLANTED = 25;          // plants par placette (5 x 5 à 1 m)
+const NPLOTS = 19;
+const PLANT_DATE = new Date(2007, 1, 1);
+// Disposition reprise du fichier « Disposition_placettes » : [ligne, colonne]
+const LAYOUT = {1:[1,1],2:[1,3],3:[1,5],4:[2,1],5:[2,3],6:[2,5],7:[3,1],8:[3,3],9:[3,5],
+  10:[4,2],11:[4,4],12:[5,3],13:[6,2],14:[6,4],15:[7,3],16:[8,2],17:[8,4],18:[9,3],19:[10,3]};
+const range = (a,b) => Array.from({length:b-a+1},(_,i)=>a+i);
+// Campagnes reprises du fichier « Relevé_2011 »
+const SEED_HARVESTS = [
+  {date:"2019-12-01", st:2.5, plots:[], note:"Éclaircie + 1 bouleau, décembre 2019 (jour non précisé). 1,5 journée à deux."},
+  {date:"2021-10-29", st:1,   plots:[], note:"Éclaircie. 1 petite journée à deux. Quelques érables élagués. Le plus grand abattu faisait 15 m."},
+  {date:"2023-12-30", st:3,   plots:range(1,9),   note:"Éclaircie. 2 journées seul."},
+  {date:"2024-12-28", st:2.2, plots:range(10,13), note:"Éclaircie. 1 journée seul + brouette."},
+  {date:"2025-12-22", st:2.2, plots:range(14,19), note:"Éclaircie les 22 et 23/12/2025. 2 journées avec David."}
+];
+
+/* ---------- Données ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+// Opération unique, notée dans le carnet comme intervention sur toute la parcelle
+const SEED_NOTES = [
+  {date:"2017-11-20", plot:null, type:"intervention", text:"Élagage des élites à 4 m (2 h de travail). Opération unique, qui ne sera pas répétée."}
+];
+// Orientation du nord sur le plan (degrés, sens horaire depuis le haut) : flèche du fichier « Disposition_placettes »
+const NORTH_DEG = 280;
+function fresh(){ return {version:2, measures:[], harvests:SEED_HARVESTS.map(h=>({...h, id:uid()})), notes:SEED_NOTES.map(n=>({...n, id:uid()})), lastExport:null}; }
+function migrate(d){
+  if(!Array.isArray(d.notes)) d.notes = SEED_NOTES.map(n=>({...n, id:uid()}));
+  d.notes.forEach(n => { n.id = n.id || uid(); n.type = n.type==="intervention" ? "intervention" : "note"; n.plot = n.plot ? +n.plot : null; });
+  d.version = 2; return d;
+}
+function load(){ try{ const s = localStorage.getItem(KEY); if(s){ const d = JSON.parse(s); if(d && Array.isArray(d.measures) && Array.isArray(d.harvests)) return d; } }catch(e){} return null; }
+let db = load();
+if(!db){ db = fresh(); save(true); }
+else if(db.version !== 2 || !Array.isArray(db.notes)){ migrate(db); save(true); }
+function save(silent){
+  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ if(!silent) toast("Enregistrement impossible : le stockage du navigateur est bloqué (navigation privée ?)."); }
+}
+
+/* ---------- Utilitaires ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const nf = new Intl.NumberFormat("fr-BE",{maximumFractionDigits:1});
+const fmt = v => v==null || isNaN(v) ? "–" : nf.format(v);
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const toDate = iso => new Date(iso + "T12:00:00");
+const fmtDate = iso => iso ? toDate(iso).toLocaleDateString("fr-BE",{day:"numeric",month:"short",year:"numeric"}) : "–";
+const today = () => { const d = new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const byDate = (a,b) => a.date.localeCompare(b.date);
+const yearsSince = (d, ref=new Date()) => (ref - d) / (365.25*864e5);
+function circs(m){ return (m && m.c ? m.c : []).filter(v => v!=null && v!=="" && !isNaN(v)).map(Number).sort((a,b)=>b-a); }
+const maxC = m => { const c = circs(m); return c.length ? c[0] : null; };
+function measuresOf(p){ return db.measures.filter(m => m.plot===p).sort(byDate); }
+function latest(p){ const ms = measuresOf(p); return ms.length ? ms[ms.length-1] : null; }
+function latestWithCirc(p){ const ms = measuresOf(p).filter(m => maxC(m)!=null); return ms.length ? ms[ms.length-1] : null; }
+function harvestsOf(p){ return db.harvests.filter(h => !h.plots || !h.plots.length || h.plots.includes(p)).sort(byDate); }
+function lastCut(p){ const h = harvestsOf(p); return h.length ? h[h.length-1] : null; }
+function plotsLabel(pl){
+  if(!pl || !pl.length) return "Toute la parcelle";
+  const s = [...pl].sort((a,b)=>a-b); const parts = []; let i = 0;
+  while(i < s.length){ let j = i; while(j+1 < s.length && s[j+1]===s[j]+1) j++; parts.push(j>i ? `${s[i]} à ${s[j]}` : `${s[i]}`); i = j+1; }
+  return (s.length>1 ? "Placettes " : "Placette ") + parts.join(", ");
+}
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("on"), 2600); }
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+/* ---------- Couleurs ---------- */
+const hex2rgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+const rgb2hex = a => "#" + a.map(v => Math.round(v).toString(16).padStart(2,"0")).join("");
+function ramp(stops, t){
+  t = Math.max(0, Math.min(1, t)); const n = stops.length-1; const i = Math.min(n-1, Math.floor(t*n)); const f = t*n - i;
+  const a = hex2rgb(stops[i]), b = hex2rgb(stops[i+1]); return rgb2hex(a.map((v,k)=>v+(b[k]-v)*f));
+}
+const GREEN = ["#E6EED6","#B7D39A","#74AC5D","#3C7A42","#1B4527"];
+const RED   = ["#8E3520","#C4643F","#E0A987","#F3E6DB"]; // récent = foncé
+const lum = h => { const [r,g,b] = hex2rgb(h); return (0.299*r + 0.587*g + 0.114*b)/255; };
+
+/* ---------- Carte de la parcelle ---------- */
+let metric = "circ";
+// ordre pseudo-aléatoire fixe par placette : les arbres restants apparaissent dispersés
+function perm(p){ let s = p*9301 + 49297; const a = range(0,24); for(let i=24;i>0;i--){ s = (s*9301+49297)%233280; const j = Math.floor(s/233280*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const PERMS = {}; range(1,NPLOTS).forEach(p => PERMS[p] = perm(p));
+
+function metricValue(p){
+  if(metric==="circ"){ const m = latestWithCirc(p); return m ? maxC(m) : null; }
+  if(metric==="count"){ const m = latest(p); return m && m.count!=null ? m.count : null; }
+  const h = lastCut(p); return h ? yearsSince(toDate(h.date)) : null;
+}
+function metricDomain(){
+  const vals = range(1,NPLOTS).map(metricValue).filter(v => v!=null);
+  if(metric==="count") return [0, PLANTED];
+  if(!vals.length) return [0,1];
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if(metric==="cut"){ lo = 0; hi = Math.max(3, Math.ceil(hi)); }
+  if(hi===lo){ lo = lo*0.8; hi = hi*1.2 || 1; }
+  return [lo, hi];
+}
+function colorFor(v, dom){
+  if(v==null) return null;
+  const t = (v - dom[0]) / (dom[1] - dom[0] || 1);
+  return metric==="cut" ? ramp(RED, t) : ramp(GREEN, t);
+}
+function valueLabel(v){
+  if(v==null) return "";
+  if(metric==="circ") return fmt(v) + " cm";
+  if(metric==="count") return v + "";
+  return v < 1 ? "< 1 an" : fmt(Math.floor(v)) + " an" + (Math.floor(v)>1?"s":"");
+}
+
+function renderMap(){
+  const UX=50, UY=100, S=92, M=8;
+  const W = 4*UX + S + 2*M, H = 9*UY + S + 2*M + 58;
+  const dom = metricDomain();
+  const ink = "#1C2B21", paper = "#F7F9F4";
+  const empty = cssVar("--panel"), line = cssVar("--line"), muted = cssVar("--muted");
+  let g = "";
+  for(let p=1; p<=NPLOTS; p++){
+    const [r,c] = LAYOUT[p]; const x = M + (c-1)*UX, y = M + (r-1)*UY;
+    const v = metricValue(p); const fill = colorFor(v, dom);
+    const dark = fill ? lum(fill) < 0.55 : false;
+    const fg = fill ? (dark ? paper : ink) : cssVar("--ink");
+    const lm = latest(p); const count = lm && lm.count!=null ? lm.count : null;
+    let dots = "";
+    const order = PERMS[p];
+    for(let i=0;i<25;i++){
+      const cx = x + 14 + (i%5)*16, cy = y + 36 + Math.floor(i/5)*12.5;
+      if(count==null){ dots += `<circle cx="${cx}" cy="${cy}" r="3" fill="none" stroke="${fill?fg:muted}" stroke-opacity=".45" stroke-width="1"/>`; }
+      else if(order.indexOf(i) < count){ dots += `<circle cx="${cx}" cy="${cy}" r="4.2" fill="${fg}"/>`; }
+      else { dots += `<circle cx="${cx}" cy="${cy}" r="1.6" fill="${fill?fg:muted}" fill-opacity=".45"/>`; }
+    }
+    const label = `Placette ${p}` + (v!=null ? `, ${valueLabel(v)}` : ", pas encore de donnée");
+    g += `<g class="plot" data-plot="${p}" tabindex="0" role="button" aria-label="${label}">
+      <rect class="bg" x="${x}" y="${y}" width="${S}" height="${S}" rx="8" fill="${fill||empty}" stroke="${fill?"none":line}" stroke-width="1.5" ${fill?"":'stroke-dasharray="4 3"'}/>
+      <text x="${x+8}" y="${y+21}" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="19" fill="${fg}">${p}</text>
+      <text x="${x+S-7}" y="${y+20}" text-anchor="end" font-family="Atkinson Hyperlegible, sans-serif" font-weight="700" font-size="11.5" fill="${fg}">${esc(valueLabel(v))}</text>
+      ${dots}</g>`;
+  }
+  // Nord : orienté comme la flèche du fichier d'origine (pointe = nord)
+  const ax = W/2 + 30, ay = H - 30, rad = NORTH_DEG*Math.PI/180;
+  const tx = ax + Math.sin(rad)*44, ty = ay - Math.cos(rad)*44;
+  g += `<g aria-label="Flèche du nord" fill="${muted}" stroke="${muted}">
+    <g transform="translate(${ax} ${ay}) rotate(${NORTH_DEG})">
+      <line x1="0" y1="16" x2="0" y2="-20" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-7 -16 L0 -32 L7 -16 Z" stroke="none"/>
+    </g>
+    <text x="${tx}" y="${ty+5}" text-anchor="${Math.sin(rad) < -0.3 ? "end" : Math.sin(rad) > 0.3 ? "start" : "middle"}" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="15" stroke="none">Nord</text></g>`;
+  $("#map").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan des 19 placettes">${g}</svg>`;
+
+  // légende
+  const titles = {circ:"Circonférence du plus gros (cm)", count:"Érables en place (sur 25)", cut:"Années depuis la dernière coupe"};
+  const stops = metric==="cut" ? RED : GREEN;
+  const lo = metric==="cut" ? "récente" : fmt(dom[0]);
+  const hi = metric==="cut" ? fmt(dom[1]) + " ans" : fmt(dom[1]);
+  const anyVal = range(1,NPLOTS).some(p => metricValue(p)!=null);
+  $("#legend").innerHTML = anyVal
+    ? `<div>${titles[metric]}</div><div class="bar" style="background:linear-gradient(90deg,${stops.join(",")})"></div><div class="ends"><span>${lo}</span><span>${hi}</span></div>`
+    : `<div>${titles[metric]}</div><p class="hint" style="margin:6px 0 0">Pas encore de mesure : les placettes se colorent au fil des relevés.</p>`;
+}
+
+/* ---------- Indicateurs ---------- */
+function kpi(v, l, cls=""){ return `<div class="kpi ${cls}"><div class="v">${v}</div><div class="l">${l}</div></div>`; }
+function renderKpis(){
+  const age = yearsSince(PLANT_DATE);
+  const lat = range(1,NPLOTS).map(latest).filter(m => m && m.count!=null);
+  const trees = lat.reduce((s,m)=>s+m.count,0);
+  let best = null; range(1,NPLOTS).forEach(p => { const m = latestWithCirc(p); if(m && (!best || maxC(m) > maxC(best))) best = m; });
+  const st = db.harvests.reduce((s,h)=>s+(+h.st||0),0);
+  $("#subtitle").textContent = `19 placettes plantées en février 2007, ${fmt(Math.floor(age*10)/10)} ans`;
+  $("#kpis").innerHTML =
+    kpi(lat.length ? `${trees} <small>/ ${lat.length*PLANTED}</small>` : "–",
+        !lat.length ? "érables en place, pas encore comptés" : lat.length===NPLOTS ? "érables en place sur 475 plantés" : `érables en place (${lat.length} placette${lat.length>1?"s":""} sur 19 comptées)`) +
+    kpi(best ? `${fmt(maxC(best))} <small>cm</small>` : "–", best ? `plus gros érable, placette ${best.plot} (${fmtDate(best.date)})` : "plus gros érable") +
+    kpi(`${fmt(st)} <small>st</small>`, `de bois prélevé en ${db.harvests.length} campagne${db.harvests.length>1?"s":""}`, "red");
+}
+
+/* ---------- Graphiques SVG ---------- */
+function niceScale(v){ if(!(v>0)) v = 1; const e = Math.pow(10, Math.floor(Math.log10(v/4))); for(const f of [1,2,2.5,5,10]){ const st = f*e; if(Math.ceil(v/st - 1e-9) <= 5) return {max: Math.ceil(v/st - 1e-9)*st, step: st}; } return {max:v, step:v/4}; }
+function niceMax(v){ return niceScale(v).max; }
+const TXT = () => cssVar("--muted"), GRID = () => cssVar("--line");
+
+function lineChart({series, xMin, xMax, yMax, yMin=0, h=210, unit="", step=false}){
+  const W=360, L=38, R=12, T=12, B=26;
+  const X = t => L + (t - xMin) / ((xMax - xMin) || 1) * (W-L-R);
+  const Y = v => T + (1 - (v - yMin) / ((yMax - yMin) || 1)) * (h-T-B);
+  let s = "";
+  const stp = niceScale(yMax - yMin).step;
+  for(let v=yMin; v<=yMax+1e-9; v+=stp){ s += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${GRID()}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="10.5" fill="${TXT()}">${fmt(v)}</text>`; }
+  const y0 = new Date(xMin).getFullYear(), y1 = new Date(xMax).getFullYear();
+  const stepY = Math.max(1, Math.ceil((y1-y0+1)/6));
+  for(let y=y0; y<=y1; y+=stepY){ const t = new Date(y,0,1).getTime(); if(t<xMin) continue; s += `<line x1="${X(t)}" x2="${X(t)}" y1="${h-B}" y2="${h-B+4}" stroke="${TXT()}"/><text x="${X(t)}" y="${h-B+16}" text-anchor="middle" font-size="10.5" fill="${TXT()}">${y}</text>`; }
+  if(unit) s += `<text x="${L}" y="${T-2}" font-size="10" fill="${TXT()}">${unit}</text>`;
+  for(const se of series){
+    const pts = se.points.filter(p => p.y!=null);
+    if(!pts.length) continue;
+    let d = "";
+    pts.forEach((p,i) => { if(step && i>0) d += `H${X(p.x)}V${Y(p.y)}`; else d += `${i?"L":"M"}${X(p.x)},${Y(p.y)}`; });
+    if(pts.length>1) s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.w||2}" stroke-opacity="${se.op||1}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(se.dots!==false) pts.forEach(p => s += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${se.r||3}" fill="${se.color}" fill-opacity="${se.op||1}"><title>${fmtDate(p.iso)} : ${fmt(p.y)}${unit?" "+unit:""}</title></circle>`);
+  }
+  return `<svg viewBox="0 0 ${W} ${h}" role="img">${s}</svg>`;
+}
+function legendRow(items){ return `<div class="legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px">${items.map(([c,l,dash])=>`<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><svg width="22" height="8"><line x1="1" y1="4" x2="21" y2="4" stroke="${c}" stroke-width="3" ${dash?'stroke-dasharray="3 3"':""}/></svg>${l}</span>`).join("")}</div>`; }
+
+function woodChart(h=220){
+  if(!db.harvests.length) return `<p class="empty">Aucune campagne enregistrée.</p>`;
+  const by = {}; db.harvests.forEach(x => { const y = +x.date.slice(0,4); by[y] = (by[y]||0) + (+x.st||0); });
+  const years = Object.keys(by).map(Number); const y0 = Math.min(...years), y1 = Math.max(new Date().getFullYear(), ...years);
+  const ys = range(y0, y1); const vals = ys.map(y => by[y]||0);
+  let cum = 0; const cums = vals.map(v => cum += v);
+  const W=360, L=30, R=40, T=18, B=26; const sv = niceScale(Math.max(...vals)), vmax = sv.max, nT = Math.round(vmax/sv.step), cmax = (x => { const e = Math.pow(10, Math.floor(Math.log10(x))); for(const f of [1,2,2.5,5,10]) if(f*e >= x - 1e-9) return f*e*nT; })(cum/nT || 1);
+  const bw = (W-L-R)/ys.length; const Yb = v => T + (1 - v/vmax)*(h-T-B); const Yc = v => T + (1 - v/cmax)*(h-T-B);
+  const red = cssVar("--maple"), sap = cssVar("--sap");
+  let s = "";
+  for(let i=0;i<=nT;i++){ const v = vmax*i/nT; s += `<line x1="${L}" x2="${W-R}" y1="${Yb(v)}" y2="${Yb(v)}" stroke="${GRID()}"/><text x="${L-5}" y="${Yb(v)+4}" text-anchor="end" font-size="10.5" fill="${TXT()}">${fmt(v)}</text><text x="${W-R+5}" y="${Yc(cmax*i/nT)+4}" font-size="10.5" fill="${sap}">${fmt(cmax*i/nT)}</text>`; }
+  ys.forEach((y,i) => {
+    const x = L + i*bw; const v = vals[i];
+    if(v>0){ s += `<rect x="${x+bw*0.18}" y="${Yb(v)}" width="${bw*0.64}" height="${h-B-Yb(v)}" rx="3" fill="${red}"><title>${y} : ${fmt(v)} st</title></rect><text x="${x+bw/2}" y="${Yb(v)-4}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${cssVar("--ink")}">${fmt(v)}</text>`; }
+    if(ys.length<=12 || i%2===0) s += `<text x="${x+bw/2}" y="${h-B+15}" text-anchor="middle" font-size="10" fill="${TXT()}">${ys.length>8?"’"+String(y).slice(2):y}</text>`;
+  });
+  let d = ""; ys.forEach((y,i) => { const x = L + i*bw + bw/2; d += `${i?"L":"M"}${x},${Yc(cums[i])}`; });
+  s += `<path d="${d}" fill="none" stroke="${sap}" stroke-width="2.5" stroke-dasharray="5 3"/>`;
+  s += `<text x="${L}" y="${T-6}" font-size="10" fill="${TXT()}">stères par an</text><text x="${W-R+36}" y="${T-6}" text-anchor="end" font-size="10" fill="${sap}">cumul</text>`;
+  return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="Stères prélevés par année">${s}</svg>` + legendRow([[red,"Stères de l'année"],[sap,`Cumul : ${fmt(cum)} st`,true]]);
+}
+
+function rankChart(){
+  const rows = range(1,NPLOTS).map(p => { const m = latestWithCirc(p); return {p, m, c: m ? circs(m) : []}; });
+  if(!rows.some(r => r.m)) return `<p class="empty">Aucune circonférence mesurée pour l'instant. <button class="btn alt" data-goto="mesurer" style="margin-top:10px">Saisir une première mesure</button></p>`;
+  rows.sort((a,b) => (b.c[0]??-1) - (a.c[0]??-1) || a.p-b.p);
+  const W=360, L=36, R=46, rh=19, T=4; const h = T + rows.length*rh + 4;
+  const vmax = Math.max(...rows.map(r => r.c[0]||0)) * 1.02;
+  const X = v => L + v/vmax*(W-L-R); const dom = [Math.min(...rows.filter(r=>r.c.length).map(r=>r.c[0])), Math.max(...rows.filter(r=>r.c.length).map(r=>r.c[0]))];
+  let s = "";
+  rows.forEach((r,i) => {
+    const y = T + i*rh;
+    s += `<text x="${L-8}" y="${y+13}" text-anchor="end" font-size="11.5" font-weight="700" fill="${cssVar("--ink")}">P${r.p}</text>`;
+    if(!r.c.length){ s += `<text x="${L}" y="${y+13}" font-size="10.5" fill="${TXT()}">pas de mesure</text>`; return; }
+    const t = (r.c[0]-dom[0])/((dom[1]-dom[0])||1);
+    s += `<rect x="${L}" y="${y+3}" width="${X(r.c[0])-L}" height="${rh-6}" rx="3" fill="${ramp(GREEN, 0.35+0.65*t)}"><title>Placette ${r.p} : ${r.c.map(fmt).join(" / ")} cm (${fmtDate(r.m.date)})</title></rect>`;
+    r.c.slice(1,3).forEach(v => s += `<line x1="${X(v)}" x2="${X(v)}" y1="${y+2}" y2="${y+rh-2}" stroke="${cssVar("--ink")}" stroke-width="1.6" stroke-opacity=".7"/>`);
+    s += `<text x="${X(r.c[0])+5}" y="${y+13}" font-size="11" fill="${cssVar("--ink")}">${fmt(r.c[0])}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="Classement des placettes">${s}</svg>`;
+}
+
+function growthChart(){
+  const all = db.measures.filter(m => maxC(m)!=null);
+  const dates = [...new Set(all.map(m => m.date))];
+  if(dates.length < 2) return `<p class="empty">La courbe apparaîtra après deux dates de mesure.</p>`;
+  const moss = cssVar("--moss");
+  const series = range(1,NPLOTS).map(p => ({color:cssVar("--moss-2"), w:1.2, op:.45, r:2,
+    points: measuresOf(p).filter(m => maxC(m)!=null).map(m => ({x:toDate(m.date).getTime(), y:maxC(m), iso:m.date}))}));
+  // moyenne par année de mesure
+  const byY = {}; all.forEach(m => { const y = m.date.slice(0,4); (byY[y] = byY[y] || []).push(m); });
+  const mean = Object.keys(byY).sort().map(y => { const ms = byY[y]; const per = {}; ms.forEach(m => { if(!per[m.plot] || m.date > per[m.plot].date) per[m.plot] = m; });
+    const vals = Object.values(per).map(maxC); const t = Math.max(...ms.map(m => toDate(m.date).getTime()));
+    return {x:t, y: vals.reduce((a,b)=>a+b,0)/vals.length, iso: new Date(t).toISOString().slice(0,10)}; });
+  series.push({color:moss, w:3.2, r:4, points:mean});
+  const ts = all.map(m => toDate(m.date).getTime());
+  const xMin = new Date(new Date(Math.min(...ts)).getFullYear(),0,1).getTime(), xMax = new Date(new Date(Math.max(...ts)).getFullYear()+1,0,1).getTime();
+  return lineChart({series, xMin, xMax, yMax:niceMax(Math.max(...all.map(maxC))), unit:"cm"}) + legendRow([[cssVar("--moss-2"),"Chaque placette"],[moss,"Moyenne de la parcelle"]]);
+}
+
+/* ---------- Carnet ---------- */
+let editN = null, nType = "note", nFilter = "all";
+function noteItem(n, actions=true){
+  const where = n.plot ? `Placette ${n.plot}` : "Toute la parcelle";
+  return `<li><div class="tag ${n.type==="intervention"?"s":"g"}">${n.plot ? "P"+n.plot : "Parc."}</div><div>
+    <div class="t">${fmtDate(n.date)}</div>
+    <div class="m"><span class="pill ${n.type==="intervention"?"i":""}">${n.type==="intervention"?"Intervention":"Observation"}</span>${where}</div>
+    <div class="n">${esc(n.text)}</div></div>
+    <div class="act">${actions ? `<button class="icon" data-edit-n="${n.id}" aria-label="Modifier">${ICON_EDIT}</button><button class="icon" data-del-n="${n.id}" aria-label="Supprimer">${ICON_DEL}</button>` : ""}</div></li>`;
+}
+function notesOf(p){ return db.notes.filter(n => n.plot===p || (n.plot==null && n.type==="intervention")).sort(byDate); }
+function renderNotes(){
+  const ns = db.notes.filter(n => nFilter==="all" || n.type===nFilter).sort((a,b) => b.date.localeCompare(a.date));
+  $("#n-list").innerHTML = ns.length ? ns.map(n => noteItem(n)).join("") : `<li style="display:block" class="empty">Aucune note ici. Ajoutez la première ci-dessus.</li>`;
+}
+function setNType(t){ nType = t; $$("#n-type button").forEach(b => b.setAttribute("aria-pressed", b.dataset.ntype===t)); }
+function fillNotePlot(){ $("#n-plot").innerHTML = `<option value="">Toute la parcelle</option>` + range(1,NPLOTS).map(p => `<option value="${p}">Placette ${p}</option>`).join(""); }
+function resetNForm(){ $("#nform").reset(); $("#n-date").value = today(); editN = null; setNType("note"); $("#nform-title").textContent = "Nouvelle note"; $("#n-cancel").hidden = true; $("#n-save").textContent = "Enregistrer la note"; }
+function startNote(p){ if($("#detail").open) $("#detail").close(); resetNForm(); $("#n-plot").value = p || ""; go("carnet"); $("#n-text").focus(); }
+function editNote(id){
+  const n = db.notes.find(x => x.id===id); if(!n) return;
+  if($("#detail").open) $("#detail").close();
+  go("carnet"); editN = id; $("#n-date").value = n.date; $("#n-plot").value = n.plot || ""; $("#n-text").value = n.text; setNType(n.type);
+  $("#nform-title").textContent = "Modifier la note"; $("#n-cancel").hidden = false; $("#n-save").textContent = "Enregistrer les modifications";
+}
+$$("#n-type button").forEach(b => b.addEventListener("click", () => setNType(b.dataset.ntype)));
+$$("#n-filter button").forEach(b => b.addEventListener("click", () => { nFilter = b.dataset.nf; $$("#n-filter button").forEach(x => x.setAttribute("aria-pressed", x===b)); renderNotes(); }));
+$("#n-cancel").addEventListener("click", resetNForm);
+$("#nform").addEventListener("submit", e => {
+  e.preventDefault();
+  const date = $("#n-date").value, text = $("#n-text").value.trim(), pv = $("#n-plot").value;
+  if(!date){ toast("Indiquez la date de la note."); return; }
+  if(!text){ toast("Écrivez le texte de la note."); $("#n-text").focus(); return; }
+  const rec = {date, text, type:nType, plot: pv ? +pv : null};
+  if(editN){ const i = db.notes.findIndex(x => x.id===editN); db.notes[i] = {...db.notes[i], ...rec}; toast("Note modifiée."); }
+  else { db.notes.push({id:uid(), ...rec}); toast(rec.plot ? `Note enregistrée, placette ${rec.plot}.` : "Note enregistrée pour toute la parcelle."); }
+  save(); resetNForm(); renderAll();
+});
+
+/* ---------- Fiche placette ---------- */
+function openDetail(p){
+  const ms = measuresOf(p), hs = harvestsOf(p), lm = latest(p), lc = latestWithCirc(p);
+  const moss = cssVar("--moss");
+  let body = `<div class="facts">
+    ${kpi(lm && lm.count!=null ? `${lm.count} <small>/ 25</small>` : "–", lm ? `érables au ${fmtDate(lm.date)}` : "érables, pas encore mesurés")}
+    ${kpi(lc ? `${fmt(maxC(lc))} <small>cm</small>` : "–", lc ? `plus gros (Ø ${fmt(maxC(lc)/Math.PI)} cm)` : "plus gros érable")}
+    ${kpi(lc && circs(lc).length>1 ? circs(lc).slice(1).map(fmt).join(" / ") + " <small>cm</small>" : "–", "2e et 3e plus gros")}
+    ${kpi(lastCut(p) ? `<span style="font-size:1.15rem">${fmtDate(lastCut(p).date)}</span>` : "–", "dernière coupe", "red")}
+  </div>
+  <div class="btns" style="margin-top:0"><button class="btn" data-measure="${p}">Ajouter une mesure</button><button class="btn alt" data-note="${p}">Ajouter une note</button></div>`;
+  const cm = ms.filter(m => maxC(m)!=null);
+  if(cm.length >= 2){
+    const ts = cm.map(m => toDate(m.date).getTime());
+    const xMin = new Date(new Date(Math.min(...ts)).getFullYear(),0,1).getTime(), xMax = new Date(new Date(Math.max(...ts)).getFullYear()+1,0,1).getTime();
+    const cols = [moss, cssVar("--moss-2"), cssVar("--sap")];
+    const series = [0,1,2].map(k => ({color:cols[k], w:k?1.8:3, points: cm.map(m => ({x:toDate(m.date).getTime(), y:circs(m)[k]??null, iso:m.date}))}));
+    body += `<h2>Circonférences</h2><div class="panel chart">${lineChart({series, xMin, xMax, yMax:niceMax(Math.max(...cm.map(maxC))), unit:"cm"})}${legendRow([[cols[0],"1er"],[cols[1],"2e"],[cols[2],"3e"]])}</div>`;
+    const cn = ms.filter(m => m.count!=null);
+    if(cn.length >= 2) body += `<h2>Nombre d'érables</h2><div class="panel chart">${lineChart({series:[{color:cssVar("--maple"), w:2.5, points: cn.map(m => ({x:toDate(m.date).getTime(), y:m.count, iso:m.date}))}], xMin, xMax, yMax:25, h:160, step:true})}</div>`;
+  }
+  body += `<h2>Mesures</h2><div class="panel"><ul class="list">${ms.length ? ms.slice().reverse().map(measureItem).join("") : `<li style="display:block" class="empty">Aucune mesure pour cette placette.</li>`}</ul></div>`;
+  const nts = notesOf(p);
+  body += `<h2>Notes</h2><div class="panel"><ul class="list">${nts.length ? nts.slice().reverse().map(n => noteItem(n, n.plot===p)).join("") : `<li style="display:block" class="empty">Aucune note pour cette placette.</li>`}</ul></div>`;
+  body += `<h2>Prélèvements</h2><div class="panel"><ul class="list">${hs.length ? hs.slice().reverse().map(h => harvestItem(h,false)).join("") : `<li style="display:block" class="empty">Aucun prélèvement enregistré.</li>`}</ul></div>`;
+  $("#d-title").textContent = `Placette ${p}`;
+  $("#d-body").innerHTML = body;
+  const dlg = $("#detail"); dlg.dataset.plot = p;
+  if(!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;
+}
+
+/* ---------- Listes ---------- */
+const ICON_EDIT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>`;
+const ICON_DEL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>`;
+function measureItem(m){
+  const c = circs(m);
+  return `<li><div class="tag g">${m.plot}</div><div>
+    <div class="t">${c.length ? c.map(fmt).join(" / ") + " cm" : "Sans circonférence"}</div>
+    <div class="m">${fmtDate(m.date)}${m.count!=null ? `, ${m.count} érable${m.count>1?"s":""}` : ""}</div>
+    ${m.note ? `<div class="n">${esc(m.note)}</div>` : ""}</div>
+    <div class="act"><button class="icon" data-edit-m="${m.id}" aria-label="Modifier">${ICON_EDIT}</button><button class="icon" data-del-m="${m.id}" aria-label="Supprimer">${ICON_DEL}</button></div></li>`;
+}
+function harvestItem(h, actions=true){
+  return `<li><div class="tag">${fmt(h.st)}</div><div>
+    <div class="t">${fmtDate(h.date)}</div>
+    <div class="m">stères, ${esc(plotsLabel(h.plots))}</div>
+    ${h.note ? `<div class="n">${esc(h.note)}</div>` : ""}</div>
+    <div class="act">${actions ? `<button class="icon" data-edit-h="${h.id}" aria-label="Modifier">${ICON_EDIT}</button><button class="icon" data-del-h="${h.id}" aria-label="Supprimer">${ICON_DEL}</button>` : ""}</div></li>`;
+}
+function renderMeasureList(){
+  const ms = db.measures.slice().sort((a,b) => b.date.localeCompare(a.date) || a.plot-b.plot).slice(0,30);
+  $("#m-list").innerHTML = ms.length ? ms.map(measureItem).join("") : `<li style="display:block" class="empty">Aucune mesure pour l'instant. Choisissez une date et la placette 1 pour commencer une campagne.</li>`;
+}
+function renderHarvests(){
+  const hs = db.harvests.slice().sort((a,b) => b.date.localeCompare(a.date));
+  $("#h-list").innerHTML = hs.length ? hs.map(h => harvestItem(h)).join("") : `<li style="display:block" class="empty">Aucune campagne. Enregistrez la prochaine ci-dessus.</li>`;
+  const st = db.harvests.reduce((s,h)=>s+(+h.st||0),0);
+  const years = [...new Set(db.harvests.map(h => h.date.slice(0,4)))];
+  const last = hs[0];
+  $("#wood-kpis").innerHTML = kpi(`${fmt(st)} <small>st</small>`, "prélevés au total", "red")
+    + kpi(years.length ? `${fmt(st/years.length)} <small>st</small>` : "–", "par année de coupe", "red")
+    + kpi(last ? `<span style="font-size:1.15rem">${fmtDate(last.date)}</span>` : "–", "dernière campagne", "red")
+    + kpi(`${db.harvests.length}`, "campagnes enregistrées", "red");
+  $("#ch-wood").innerHTML = woodChart(230);
+}
+
+/* ---------- Formulaire mesures ---------- */
+let editM = null;
+function fillPlotSelect(){ $("#m-plot").innerHTML = range(1,NPLOTS).map(p => `<option value="${p}">Placette ${p}</option>`).join(""); }
+function updateRef(){
+  const p = +$("#m-plot").value; const ms = measuresOf(p).filter(m => !editM || m.id!==editM);
+  const lm = ms[ms.length-1];
+  $("#m-ref").textContent = lm ? `Dernière mesure le ${fmtDate(lm.date)} : ${lm.count!=null ? lm.count + " érables, " : ""}${circs(lm).length ? circs(lm).map(fmt).join(" / ") + " cm" : "sans circonférence"}.` : `Première mesure de la placette ${p}.`;
+  if(!editM && $("#m-count").value==="" && lm && lm.count!=null) $("#m-count").value = lm.count;
+}
+function updateDia(){ ["c1","c2","c3"].forEach(k => { const v = parseFloat($("#m-"+k).value); $("#d-"+k).textContent = v>0 ? `Ø ${fmt(v/Math.PI)} cm` : ""; }); }
+function resetMForm(keepDate){
+  const d = $("#m-date").value; $("#mform").reset(); $("#m-date").value = keepDate && d ? d : today();
+  editM = null; $("#mform-title").textContent = "Nouvelle mesure"; $("#m-cancel").hidden = true; $("#m-save-next").hidden = false; updateDia();
+}
+function startMeasure(p){
+  resetMForm(true); $("#m-plot").value = p; $("#m-count").value = ""; updateRef(); go("mesurer");
+  if($("#detail").open) $("#detail").close();
+  $("#mform").scrollIntoView({block:"start"});
+}
+function editMeasure(id){
+  const m = db.measures.find(x => x.id===id); if(!m) return;
+  if($("#detail").open) $("#detail").close();
+  go("mesurer"); editM = id;
+  $("#m-date").value = m.date; $("#m-plot").value = m.plot; $("#m-count").value = m.count ?? "";
+  const c = circs(m); ["c1","c2","c3"].forEach((k,i) => $("#m-"+k).value = c[i] ?? "");
+  $("#m-note").value = m.note || ""; $("#mform-title").textContent = `Modifier la mesure, placette ${m.plot}`;
+  $("#m-cancel").hidden = false; $("#m-save-next").hidden = true; updateRef(); updateDia();
+  window.scrollTo({top:0});
+}
+$("#mform").addEventListener("submit", e => {
+  e.preventDefault();
+  const next = e.submitter && e.submitter.dataset.next==="1";
+  const date = $("#m-date").value, plot = +$("#m-plot").value;
+  const cRaw = $("#m-count").value.trim();
+  if(!date){ toast("Indiquez la date de la mesure."); $("#m-date").focus(); return; }
+  const count = cRaw==="" ? null : Math.round(+cRaw);
+  if(count==null || count<0 || count>PLANTED){ toast("Indiquez le nombre d'érables, entre 0 et 25."); $("#m-count").focus(); return; }
+  const c = ["c1","c2","c3"].map(k => $("#m-"+k).value.trim()).filter(v => v!=="").map(Number);
+  if(c.some(v => isNaN(v) || v<=0 || v>400)){ toast("Circonférence invalide : saisissez des centimètres (ex. 62)."); return; }
+  if(c.length > count){ toast(`${c.length} circonférences pour ${count} érable${count>1?"s":""} : vérifiez le nombre d'arbres.`); return; }
+  c.sort((a,b)=>b-a);
+  const rec = {date, plot, count, c, note:$("#m-note").value.trim()};
+  if(editM){ const i = db.measures.findIndex(x => x.id===editM); db.measures[i] = {...db.measures[i], ...rec}; toast(`Mesure modifiée, placette ${plot}.`); }
+  else { db.measures.push({id:uid(), ...rec}); toast(`Mesure enregistrée, placette ${plot}.`); }
+  save(); resetMForm(true);
+  $("#m-plot").value = next ? (plot % NPLOTS) + 1 : plot;
+  updateRef(); renderAll();
+  if(next) $("#m-count").focus();
+});
+$("#m-cancel").addEventListener("click", () => { resetMForm(false); updateRef(); });
+$("#m-plot").addEventListener("change", () => { $("#m-count").value = ""; updateRef(); });
+$$("[data-step]").forEach(b => b.addEventListener("click", () => { const i = $("#m-count"); const v = (parseInt(i.value)||0) + (+b.dataset.step); i.value = Math.max(0, Math.min(PLANTED, v)); }));
+["c1","c2","c3"].forEach(k => $("#m-"+k).addEventListener("input", updateDia));
+
+/* ---------- Formulaire prélèvements ---------- */
+let editH = null; let hSel = new Set();
+function renderChips(){ $("#h-plots").innerHTML = range(1,NPLOTS).map(p => `<button type="button" data-chip="${p}" aria-pressed="${hSel.has(p)}">${p}</button>`).join(""); }
+function resetHForm(){ $("#hform").reset(); $("#h-date").value = today(); hSel = new Set(); editH = null; renderChips(); $("#hform-title").textContent = "Nouvelle campagne de prélèvement"; $("#h-cancel").hidden = true; $("#h-save").textContent = "Enregistrer la campagne"; }
+$("#h-plots").addEventListener("click", e => { const b = e.target.closest("[data-chip]"); if(!b) return; const p = +b.dataset.chip; hSel.has(p) ? hSel.delete(p) : hSel.add(p); b.setAttribute("aria-pressed", hSel.has(p)); });
+$("#hform").addEventListener("submit", e => {
+  e.preventDefault();
+  const date = $("#h-date").value, st = parseFloat(String($("#h-st").value).replace(",", "."));
+  if(!date){ toast("Indiquez la date de la campagne."); return; }
+  if(isNaN(st) || st<=0){ toast("Indiquez le volume en stères (ex. 2,5)."); $("#h-st").focus(); return; }
+  const rec = {date, st, plots:[...hSel].sort((a,b)=>a-b), note:$("#h-note").value.trim()};
+  if(editH){ const i = db.harvests.findIndex(x => x.id===editH); db.harvests[i] = {...db.harvests[i], ...rec}; toast("Campagne modifiée."); }
+  else { db.harvests.push({id:uid(), ...rec}); toast(`Campagne enregistrée : ${fmt(st)} stères.`); }
+  save(); resetHForm(); renderAll();
+});
+$("#h-cancel").addEventListener("click", resetHForm);
+function editHarvest(id){
+  const h = db.harvests.find(x => x.id===id); if(!h) return;
+  if($("#detail").open) $("#detail").close();
+  go("bois"); editH = id; $("#h-date").value = h.date; $("#h-st").value = h.st; $("#h-note").value = h.note || "";
+  hSel = new Set(h.plots || []); renderChips(); $("#hform-title").textContent = "Modifier la campagne"; $("#h-cancel").hidden = false; $("#h-save").textContent = "Enregistrer les modifications";
+  $("#hform").scrollIntoView({block:"start"});
+}
+
+/* ---------- Navigation & délégation ---------- */
+function go(v){
+  $$(".view").forEach(s => s.classList.toggle("on", s.id==="v-"+v));
+  $$("nav.tabs button").forEach(b => b.dataset.view===v ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"));
+  window.scrollTo({top:0});
+}
+$$("nav.tabs button").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
+$$(".seg button").forEach(b => b.addEventListener("click", () => { metric = b.dataset.metric; $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x===b)); renderMap(); }));
+$("#map").addEventListener("click", e => { const g = e.target.closest(".plot"); if(g) openDetail(+g.dataset.plot); });
+$("#map").addEventListener("keydown", e => { if((e.key==="Enter"||e.key===" ") && e.target.closest(".plot")){ e.preventDefault(); openDetail(+e.target.closest(".plot").dataset.plot); } });
+$("#d-close").addEventListener("click", () => $("#detail").close());
+$("#detail").addEventListener("click", e => { if(e.target===e.currentTarget) e.currentTarget.close(); });
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-measure],[data-note],[data-edit-m],[data-del-m],[data-edit-h],[data-del-h],[data-edit-n],[data-del-n],[data-goto]"); if(!t) return;
+  if(t.dataset.note) return startNote(+t.dataset.note);
+  if(t.dataset.editN) return editNote(t.dataset.editN);
+  if(t.dataset.delN){ const n = db.notes.find(x => x.id===t.dataset.delN); if(n && confirm(`Supprimer la note du ${fmtDate(n.date)} ?`)){ db.notes = db.notes.filter(x => x.id!==n.id); save(); renderAll(); toast("Note supprimée."); } return; }
+  if(t.dataset.measure) return startMeasure(+t.dataset.measure);
+  if(t.dataset.goto) return go(t.dataset.goto);
+  if(t.dataset.editM) return editMeasure(t.dataset.editM);
+  if(t.dataset.editH) return editHarvest(t.dataset.editH);
+  if(t.dataset.delM){ const m = db.measures.find(x => x.id===t.dataset.delM); if(m && confirm(`Supprimer la mesure du ${fmtDate(m.date)}, placette ${m.plot} ?`)){ db.measures = db.measures.filter(x => x.id!==m.id); save(); renderAll(); toast("Mesure supprimée."); } }
+  if(t.dataset.delH){ const h = db.harvests.find(x => x.id===t.dataset.delH); if(h && confirm(`Supprimer la campagne du ${fmtDate(h.date)} (${fmt(h.st)} st) ?`)){ db.harvests = db.harvests.filter(x => x.id!==h.id); save(); renderAll(); toast("Campagne supprimée."); } }
+});
+
+/* ---------- Données ---------- */
+function download(name, text, type){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text],{type})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+$("#exp-json").addEventListener("click", () => { db.lastExport = new Date().toISOString(); save(); download(`erabliere-sauvegarde-${today()}.json`, JSON.stringify(db, null, 2), "application/json"); renderExportInfo(); toast("Sauvegarde exportée."); });
+$("#imp-json").addEventListener("click", () => $("#imp-file").click());
+$("#imp-file").addEventListener("change", async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    if(!d || !Array.isArray(d.measures) || !Array.isArray(d.harvests)) throw new Error("format");
+    if(!confirm(`Remplacer les données actuelles par ce fichier (${d.measures.length} mesures, ${d.harvests.length} campagnes) ?`)) return;
+    d.measures.forEach(m => m.id = m.id || uid()); d.harvests.forEach(h => h.id = h.id || uid());
+    db = migrate(d); save(); renderAll(); toast("Sauvegarde importée.");
+  }catch(err){ toast("Fichier non reconnu : choisissez un export .json de cette application."); }
+  finally{ e.target.value = ""; }
+});
+const csvCell = v => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+const num = v => v==null || v==="" ? "" : String(v).replace(".", ",");
+$("#exp-csv-m").addEventListener("click", () => {
+  const rows = [["Date","Placette","Nombre d'érables","C1 (cm)","C2 (cm)","C3 (cm)","Remarque"]].concat(
+    db.measures.slice().sort((a,b)=>byDate(a,b)||a.plot-b.plot).map(m => { const c = circs(m); return [m.date, m.plot, m.count ?? "", num(c[0]), num(c[1]), num(c[2]), m.note||""]; }));
+  download(`erabliere-mesures-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
+});
+$("#exp-csv-h").addEventListener("click", () => {
+  const rows = [["Date","Stères","Placettes","Remarque"]].concat(db.harvests.slice().sort(byDate).map(h => [h.date, num(h.st), plotsLabel(h.plots), h.note||""]));
+  download(`erabliere-prelevements-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
+});
+$("#exp-csv-n").addEventListener("click", () => {
+  const rows = [["Date","Concerne","Type","Note"]].concat(db.notes.slice().sort(byDate).map(n => [n.date, n.plot ? "Placette "+n.plot : "Toute la parcelle", n.type==="intervention"?"Intervention":"Observation", n.text]));
+  download(`erabliere-carnet-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
+});
+$("#reset").addEventListener("click", () => { if(confirm("Effacer toutes les mesures et notes et revenir aux données d'origine ? Pensez à exporter une sauvegarde avant.")){ db = fresh(); save(); resetMForm(false); resetHForm(); resetNForm(); renderAll(); toast("Données réinitialisées."); } });
+function renderExportInfo(){ $("#last-export").textContent = db.lastExport ? `Dernier export : ${fmtDate(db.lastExport.slice(0,10))}.` : "Aucun export pour l'instant."; }
+
+/* ---------- Rendu ---------- */
+function renderAll(){
+  renderMap(); renderKpis();
+  $("#ch-rank").innerHTML = rankChart();
+  $("#ch-growth").innerHTML = growthChart();
+  $("#ch-wood-dash").innerHTML = woodChart(200);
+  renderMeasureList(); renderHarvests(); renderNotes(); renderExportInfo();
+  const dlg = $("#detail"); if(dlg.open) openDetail(+dlg.dataset.plot);
+}
+fillPlotSelect(); fillNotePlot(); resetMForm(false); updateRef(); resetHForm(); resetNForm(); renderAll();
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", renderAll);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(renderMap);
+if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
