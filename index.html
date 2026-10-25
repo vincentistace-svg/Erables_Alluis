@@ -159,6 +159,7 @@ dialog .db{padding:0 16px calc(24px + env(safe-area-inset-bottom,0px))}
     <div class="seg" role="group" aria-label="Couleur des placettes">
       <button data-metric="circ" aria-pressed="true">Circonférence</button>
       <button data-metric="count" aria-pressed="false">Érables</button>
+      <button data-metric="elite" aria-pressed="false">Élites</button>
       <button data-metric="cut" aria-pressed="false">Dernière coupe</button>
     </div>
     <div class="hero">
@@ -452,6 +453,7 @@ function ramp(stops, t){
 }
 const GREEN = ["#E6EED6","#B7D39A","#74AC5D","#3C7A42","#1B4527"];
 const RED   = ["#8E3520","#C4643F","#E0A987","#F3E6DB"]; // récent = foncé
+const BLUE  = ["#E3EEF8","#A9CBEA","#5E9BD3","#2468A8","#0F3A66"]; // gros = foncé
 const lum = h => { const [r,g,b] = hex2rgb(h); return (0.299*r + 0.587*g + 0.114*b)/255; };
 
 /* ---------- Carte de la parcelle ---------- */
@@ -463,6 +465,7 @@ const PERMS = {}; range(1,NPLOTS).forEach(p => PERMS[p] = perm(p));
 function metricValue(p){
   if(metric==="circ"){ const m = latestWithCirc(p); return m ? maxC(m) : null; }
   if(metric==="count"){ const m = latest(p); return m && m.count!=null ? m.count : null; }
+  if(metric==="elite"){ const ms = measuresOf(p).filter(m => elites(m).length); return ms.length ? elites(ms[ms.length-1])[0] : null; }
   const h = lastCut(p); return h ? yearsSince(toDate(h.date)) : null;
 }
 function metricDomain(){
@@ -477,11 +480,11 @@ function metricDomain(){
 function colorFor(v, dom){
   if(v==null) return null;
   const t = (v - dom[0]) / (dom[1] - dom[0] || 1);
-  return metric==="cut" ? ramp(RED, t) : ramp(GREEN, t);
+  return metric==="cut" ? ramp(RED, t) : metric==="elite" ? ramp(BLUE, t) : ramp(GREEN, t);
 }
 function valueLabel(v){
   if(v==null) return "";
-  if(metric==="circ") return fmt(v) + " cm";
+  if(metric==="circ" || metric==="elite") return fmt(v) + " cm";
   if(metric==="count") return v + "";
   return v < 1 ? "< 1 an" : fmt(Math.floor(v)) + " an" + (Math.floor(v)>1?"s":"");
 }
@@ -526,13 +529,13 @@ function renderMap(){
   $("#map").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan des 19 placettes">${g}</svg>`;
 
   // légende
-  const titles = {circ:"Circonférence du plus gros (cm)", count:"Érables en place (sur 25)", cut:"Années depuis la dernière coupe"};
-  const stops = metric==="cut" ? RED : GREEN;
+  const titles = {circ:"Circonférence du plus gros (cm)", count:"Érables en place (sur 25)", cut:"Années depuis la dernière coupe", elite:"Circonférence de la plus grosse élite (cm)"};
+  const stops = metric==="cut" ? RED : metric==="elite" ? BLUE : GREEN;
   const lo = metric==="cut" ? "récente" : fmt(dom[0]);
   const hi = metric==="cut" ? fmt(dom[1]) + " ans" : fmt(dom[1]);
   const anyVal = range(1,NPLOTS).some(p => metricValue(p)!=null);
   $("#legend").innerHTML = anyVal
-    ? `<div>${titles[metric]}</div><div class="bar" style="background:linear-gradient(90deg,${stops.join(",")})"></div><div class="ends"><span>${lo}</span><span>${hi}</span></div>`
+    ? `<div>${titles[metric]}</div><div class="bar" style="background:linear-gradient(90deg,${stops.join(",")})"></div><div class="ends"><span>${lo}</span><span>${hi}</span></div>${metric==="elite" ? `<p class="hint" style="margin:6px 0 0">Placette en pointillé : aucune élite renseignée.</p>` : ""}`
     : `<div>${titles[metric]}</div><p class="hint" style="margin:6px 0 0">Pas encore de mesure : les placettes se colorent au fil des relevés.</p>`;
 }
 
