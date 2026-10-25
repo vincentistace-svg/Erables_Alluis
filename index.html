@@ -18,6 +18,7 @@
 :root{
   --bg:#F2F4EF; --panel:#FFFFFF; --ink:#1C2B21; --muted:#617064; --line:#D6DDD4;
   --moss:#2F5D3A; --moss-2:#5E9A4F; --leaf:#E3ECD3; --sap:#C8A13A; --maple:#B5462B; --maple-2:#F3E3D6;
+  --elite:#1F6AA5; --elite-bg:#EAF2FA;
   --display:"Bricolage Grotesque", "Avenir Next Condensed", "Segoe UI", system-ui, sans-serif;
   --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
   --nav-h:64px;
@@ -25,7 +26,7 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#131A15; --panel:#1B241E; --ink:#E6ECE4; --muted:#9AA89C; --line:#2E3A31;
-    --moss:#7FBF72; --moss-2:#5E9A4F; --leaf:#243226; --sap:#D9B656; --maple:#E07A5A; --maple-2:#3A2620;
+    --moss:#7FBF72; --moss-2:#5E9A4F; --leaf:#243226; --sap:#D9B656; --maple:#E07A5A; --maple-2:#3A2620; --elite:#7DB7E8; --elite-bg:#16283A;
   }
 }
 *{box-sizing:border-box}
@@ -85,6 +86,13 @@ textarea{min-height:84px; resize:vertical}
 .circ{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
 .circ input{text-align:center; font-family:var(--display); font-weight:700; font-size:1.25rem}
 .circ .dia{font-size:.76rem; color:var(--muted); text-align:center; margin-top:3px; min-height:1.1em}
+.elite-lab{color:var(--elite); font-weight:700}
+.circ.elite input{border:1.5px solid var(--elite); background:var(--elite-bg); color:var(--elite)}
+.circ.elite input::placeholder{color:var(--elite); opacity:.55}
+.circ.elite .dia{color:var(--elite)}
+.el{color:var(--elite); font-weight:700}
+.kpi.blue{border-color:var(--elite)}
+.chips.n button[aria-pressed="true"]{background:var(--moss); border-color:var(--moss)}
 .plotpick{display:flex; gap:6px}
 .plotpick select{flex:1; font-family:var(--display); font-weight:700; font-size:1.1rem}
 .plotpick button{width:48px; border:1px solid var(--line); background:var(--panel); border-radius:10px; cursor:pointer; font-size:1.1rem}
@@ -208,6 +216,13 @@ dialog .db{padding:0 16px calc(24px + env(safe-area-inset-bottom,0px))}
         <div><input type="number" id="m-c3" inputmode="decimal" min="0" step="0.5" placeholder="3e" aria-label="Circonférence du troisième"><div class="dia" id="d-c3"></div></div>
       </div>
 
+      <label class="elite-lab">Circonférence des élites (cm)</label>
+      <div class="circ elite">
+        <div><input type="number" id="m-e1" inputmode="decimal" min="0" step="0.5" placeholder="élite 1" aria-label="Circonférence de l'élite 1"><div class="dia" id="d-e1"></div></div>
+        <div><input type="number" id="m-e2" inputmode="decimal" min="0" step="0.5" placeholder="élite 2" aria-label="Circonférence de l'élite 2"><div class="dia" id="d-e2"></div></div>
+        <div><input type="number" id="m-e3" inputmode="decimal" min="0" step="0.5" placeholder="élite 3" aria-label="Circonférence de l'élite 3"><div class="dia" id="d-e3"></div></div>
+      </div>
+
       <label for="m-note">Remarques</label>
       <textarea id="m-note" placeholder="État des arbres mesurés, de la placette…"></textarea>
 
@@ -265,11 +280,9 @@ dialog .db{padding:0 16px calc(24px + env(safe-area-inset-bottom,0px))}
           <label for="n-date">Date</label>
           <input type="date" id="n-date" required>
         </div>
-        <div>
-          <label for="n-plot">Concerne</label>
-          <select id="n-plot"></select>
-        </div>
       </div>
+      <label>Placettes concernées <span class="note">(aucune sélection = toute la parcelle)</span></label>
+      <div class="chips n" id="n-plots"></div>
       <label>Type</label>
       <div class="seg" role="group" aria-label="Type de note" style="margin:0" id="n-type">
         <button type="button" data-ntype="note" aria-pressed="true">Observation</button>
@@ -362,8 +375,10 @@ const PLANTED = 25;          // plants par placette (5 x 5 à 1 m)
 const NPLOTS = 19;
 const PLANT_DATE = new Date(2007, 1, 1);
 // Disposition reprise du fichier « Disposition_placettes » : [ligne, colonne]
+// Disposition reprise du fichier « plan_erables » : [ligne, colonne]
 const LAYOUT = {1:[1,1],2:[1,3],3:[1,5],4:[2,1],5:[2,3],6:[2,5],7:[3,1],8:[3,3],9:[3,5],
-  10:[4,2],11:[4,4],12:[5,3],13:[6,2],14:[6,4],15:[7,3],16:[8,2],17:[8,4],18:[9,3],19:[10,3]};
+  10:[4,2],11:[4,4],12:[5,2],13:[5,4],14:[6,3],15:[7,2],16:[7,4],17:[8,3],18:[9,2],19:[9,4]};
+const NROWS = Math.max(...Object.values(LAYOUT).map(v => v[0]));
 const range = (a,b) => Array.from({length:b-a+1},(_,i)=>a+i);
 // Campagnes reprises du fichier « Relevé_2011 »
 const SEED_HARVESTS = [
@@ -378,20 +393,23 @@ const SEED_HARVESTS = [
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 // Opération unique, notée dans le carnet comme intervention sur toute la parcelle
 const SEED_NOTES = [
-  {date:"2017-11-20", plot:null, type:"intervention", text:"Élagage des élites à 4 m (2 h de travail). Opération unique, qui ne sera pas répétée."}
+  {date:"2017-11-20", plots:[], type:"intervention", text:"Élagage des élites à 4 m (2 h de travail). Opération unique, qui ne sera pas répétée."}
 ];
 // Orientation du nord sur le plan (degrés, sens horaire depuis le haut) : flèche du fichier « Disposition_placettes »
 const NORTH_DEG = 280;
-function fresh(){ return {version:2, measures:[], harvests:SEED_HARVESTS.map(h=>({...h, id:uid()})), notes:SEED_NOTES.map(n=>({...n, id:uid()})), lastExport:null}; }
+function fresh(){ return {version:3, measures:[], harvests:SEED_HARVESTS.map(h=>({...h, id:uid()})), notes:SEED_NOTES.map(n=>({...n, id:uid()})), lastExport:null}; }
 function migrate(d){
   if(!Array.isArray(d.notes)) d.notes = SEED_NOTES.map(n=>({...n, id:uid()}));
-  d.notes.forEach(n => { n.id = n.id || uid(); n.type = n.type==="intervention" ? "intervention" : "note"; n.plot = n.plot ? +n.plot : null; });
-  d.version = 2; return d;
+  d.notes.forEach(n => { n.id = n.id || uid(); n.type = n.type==="intervention" ? "intervention" : "note";
+    if(!Array.isArray(n.plots)) n.plots = n.plot ? [+n.plot] : [];
+    n.plots = [...new Set(n.plots.map(Number))].filter(p => p>=1 && p<=NPLOTS).sort((a,b)=>a-b); delete n.plot; });
+  d.measures.forEach(m => { if(!Array.isArray(m.e)) m.e = []; });
+  d.version = 3; return d;
 }
 function load(){ try{ const s = localStorage.getItem(KEY); if(s){ const d = JSON.parse(s); if(d && Array.isArray(d.measures) && Array.isArray(d.harvests)) return d; } }catch(e){} return null; }
 let db = load();
 if(!db){ db = fresh(); save(true); }
-else if(db.version !== 2 || !Array.isArray(db.notes)){ migrate(db); save(true); }
+else if(db.version !== 3 || !Array.isArray(db.notes)){ migrate(db); save(true); }
 function save(silent){
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }
   catch(e){ if(!silent) toast("Enregistrement impossible : le stockage du navigateur est bloqué (navigation privée ?)."); }
@@ -410,6 +428,7 @@ const byDate = (a,b) => a.date.localeCompare(b.date);
 const yearsSince = (d, ref=new Date()) => (ref - d) / (365.25*864e5);
 function circs(m){ return (m && m.c ? m.c : []).filter(v => v!=null && v!=="" && !isNaN(v)).map(Number).sort((a,b)=>b-a); }
 const maxC = m => { const c = circs(m); return c.length ? c[0] : null; };
+function elites(m){ return (m && m.e ? m.e : []).filter(v => v!=null && v!=="" && !isNaN(v)).map(Number).sort((a,b)=>b-a); }
 function measuresOf(p){ return db.measures.filter(m => m.plot===p).sort(byDate); }
 function latest(p){ const ms = measuresOf(p); return ms.length ? ms[ms.length-1] : null; }
 function latestWithCirc(p){ const ms = measuresOf(p).filter(m => maxC(m)!=null); return ms.length ? ms[ms.length-1] : null; }
@@ -418,7 +437,7 @@ function lastCut(p){ const h = harvestsOf(p); return h.length ? h[h.length-1] : 
 function plotsLabel(pl){
   if(!pl || !pl.length) return "Toute la parcelle";
   const s = [...pl].sort((a,b)=>a-b); const parts = []; let i = 0;
-  while(i < s.length){ let j = i; while(j+1 < s.length && s[j+1]===s[j]+1) j++; parts.push(j>i ? `${s[i]} à ${s[j]}` : `${s[i]}`); i = j+1; }
+  while(i < s.length){ let j = i; while(j+1 < s.length && s[j+1]===s[j]+1) j++; if(j-i>=2) parts.push(`${s[i]} à ${s[j]}`); else for(let k=i;k<=j;k++) parts.push(`${s[k]}`); i = j+1; }
   return (s.length>1 ? "Placettes " : "Placette ") + parts.join(", ");
 }
 function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("on"), 2600); }
@@ -469,7 +488,7 @@ function valueLabel(v){
 
 function renderMap(){
   const UX=50, UY=100, S=92, M=8;
-  const W = 4*UX + S + 2*M, H = 9*UY + S + 2*M + 58;
+  const W = 4*UX + S + 2*M, H = (NROWS-1)*UY + S + 2*M + 58;
   const dom = metricDomain();
   const ink = "#1C2B21", paper = "#F7F9F4";
   const empty = cssVar("--panel"), line = cssVar("--line"), muted = cssVar("--muted");
@@ -624,26 +643,31 @@ function growthChart(){
 /* ---------- Carnet ---------- */
 let editN = null, nType = "note", nFilter = "all";
 function noteItem(n, actions=true){
-  const where = n.plot ? `Placette ${n.plot}` : "Toute la parcelle";
-  return `<li><div class="tag ${n.type==="intervention"?"s":"g"}">${n.plot ? "P"+n.plot : "Parc."}</div><div>
+  const pl = n.plots || [];
+  const where = plotsLabel(pl);
+  const tag = !pl.length ? "Parc." : pl.length===1 ? "P"+pl[0] : pl.length+" pl.";
+  return `<li><div class="tag ${n.type==="intervention"?"s":"g"}">${tag}</div><div>
     <div class="t">${fmtDate(n.date)}</div>
     <div class="m"><span class="pill ${n.type==="intervention"?"i":""}">${n.type==="intervention"?"Intervention":"Observation"}</span>${where}</div>
     <div class="n">${esc(n.text)}</div></div>
     <div class="act">${actions ? `<button class="icon" data-edit-n="${n.id}" aria-label="Modifier">${ICON_EDIT}</button><button class="icon" data-del-n="${n.id}" aria-label="Supprimer">${ICON_DEL}</button>` : ""}</div></li>`;
 }
-function notesOf(p){ return db.notes.filter(n => n.plot===p || (n.plot==null && n.type==="intervention")).sort(byDate); }
+function notesOf(p){ return db.notes.filter(n => !(n.plots||[]).length || n.plots.includes(p)).sort(byDate); }
 function renderNotes(){
   const ns = db.notes.filter(n => nFilter==="all" || n.type===nFilter).sort((a,b) => b.date.localeCompare(a.date));
   $("#n-list").innerHTML = ns.length ? ns.map(n => noteItem(n)).join("") : `<li style="display:block" class="empty">Aucune note ici. Ajoutez la première ci-dessus.</li>`;
 }
 function setNType(t){ nType = t; $$("#n-type button").forEach(b => b.setAttribute("aria-pressed", b.dataset.ntype===t)); }
-function fillNotePlot(){ $("#n-plot").innerHTML = `<option value="">Toute la parcelle</option>` + range(1,NPLOTS).map(p => `<option value="${p}">Placette ${p}</option>`).join(""); }
-function resetNForm(){ $("#nform").reset(); $("#n-date").value = today(); editN = null; setNType("note"); $("#nform-title").textContent = "Nouvelle note"; $("#n-cancel").hidden = true; $("#n-save").textContent = "Enregistrer la note"; }
-function startNote(p){ if($("#detail").open) $("#detail").close(); resetNForm(); $("#n-plot").value = p || ""; go("carnet"); $("#n-text").focus(); }
+let nSel = new Set();
+function renderNChips(){ $("#n-plots").innerHTML = range(1,NPLOTS).map(p => `<button type="button" data-nchip="${p}" aria-pressed="${nSel.has(p)}">${p}</button>`).join(""); }
+function fillNotePlot(){ renderNChips(); }
+$("#n-plots").addEventListener("click", e => { const b = e.target.closest("[data-nchip]"); if(!b) return; const p = +b.dataset.nchip; nSel.has(p) ? nSel.delete(p) : nSel.add(p); b.setAttribute("aria-pressed", nSel.has(p)); });
+function resetNForm(){ $("#nform").reset(); $("#n-date").value = today(); editN = null; nSel = new Set(); renderNChips(); setNType("note"); $("#nform-title").textContent = "Nouvelle note"; $("#n-cancel").hidden = true; $("#n-save").textContent = "Enregistrer la note"; }
+function startNote(p){ if($("#detail").open) $("#detail").close(); resetNForm(); if(p){ nSel = new Set([p]); renderNChips(); } go("carnet"); $("#n-text").focus(); }
 function editNote(id){
   const n = db.notes.find(x => x.id===id); if(!n) return;
   if($("#detail").open) $("#detail").close();
-  go("carnet"); editN = id; $("#n-date").value = n.date; $("#n-plot").value = n.plot || ""; $("#n-text").value = n.text; setNType(n.type);
+  go("carnet"); editN = id; $("#n-date").value = n.date; nSel = new Set(n.plots || []); renderNChips(); $("#n-text").value = n.text; setNType(n.type);
   $("#nform-title").textContent = "Modifier la note"; $("#n-cancel").hidden = false; $("#n-save").textContent = "Enregistrer les modifications";
 }
 $$("#n-type button").forEach(b => b.addEventListener("click", () => setNType(b.dataset.ntype)));
@@ -651,12 +675,12 @@ $$("#n-filter button").forEach(b => b.addEventListener("click", () => { nFilter 
 $("#n-cancel").addEventListener("click", resetNForm);
 $("#nform").addEventListener("submit", e => {
   e.preventDefault();
-  const date = $("#n-date").value, text = $("#n-text").value.trim(), pv = $("#n-plot").value;
+  const date = $("#n-date").value, text = $("#n-text").value.trim();
   if(!date){ toast("Indiquez la date de la note."); return; }
   if(!text){ toast("Écrivez le texte de la note."); $("#n-text").focus(); return; }
-  const rec = {date, text, type:nType, plot: pv ? +pv : null};
+  const rec = {date, text, type:nType, plots:[...nSel].sort((a,b)=>a-b)};
   if(editN){ const i = db.notes.findIndex(x => x.id===editN); db.notes[i] = {...db.notes[i], ...rec}; toast("Note modifiée."); }
-  else { db.notes.push({id:uid(), ...rec}); toast(rec.plot ? `Note enregistrée, placette ${rec.plot}.` : "Note enregistrée pour toute la parcelle."); }
+  else { db.notes.push({id:uid(), ...rec}); toast(rec.plots.length ? `Note enregistrée : ${plotsLabel(rec.plots).toLowerCase()}.` : "Note enregistrée pour toute la parcelle."); }
   save(); resetNForm(); renderAll();
 });
 
@@ -669,6 +693,7 @@ function openDetail(p){
     ${kpi(lc ? `${fmt(maxC(lc))} <small>cm</small>` : "–", lc ? `plus gros (Ø ${fmt(maxC(lc)/Math.PI)} cm)` : "plus gros érable")}
     ${kpi(lc && circs(lc).length>1 ? circs(lc).slice(1).map(fmt).join(" / ") + " <small>cm</small>" : "–", "2e et 3e plus gros")}
     ${kpi(lastCut(p) ? `<span style="font-size:1.15rem">${fmtDate(lastCut(p).date)}</span>` : "–", "dernière coupe", "red")}
+    ${(() => { const le = ms.filter(m => elites(m).length).pop(); return kpi(le ? `<span class="el">${elites(le).map(fmt).join(" / ")}</span> <small>cm</small>` : "–", le ? `élite${elites(le).length>1?"s":""} au ${fmtDate(le.date)}` : "élites, pas encore mesurées", "blue"); })()}
   </div>
   <div class="btns" style="margin-top:0"><button class="btn" data-measure="${p}">Ajouter une mesure</button><button class="btn alt" data-note="${p}">Ajouter une note</button></div>`;
   const cm = ms.filter(m => maxC(m)!=null);
@@ -683,7 +708,7 @@ function openDetail(p){
   }
   body += `<h2>Mesures</h2><div class="panel"><ul class="list">${ms.length ? ms.slice().reverse().map(measureItem).join("") : `<li style="display:block" class="empty">Aucune mesure pour cette placette.</li>`}</ul></div>`;
   const nts = notesOf(p);
-  body += `<h2>Notes</h2><div class="panel"><ul class="list">${nts.length ? nts.slice().reverse().map(n => noteItem(n, n.plot===p)).join("") : `<li style="display:block" class="empty">Aucune note pour cette placette.</li>`}</ul></div>`;
+  body += `<h2>Notes</h2><div class="panel"><ul class="list">${nts.length ? nts.slice().reverse().map(n => noteItem(n)).join("") : `<li style="display:block" class="empty">Aucune note pour cette placette.</li>`}</ul></div>`;
   body += `<h2>Prélèvements</h2><div class="panel"><ul class="list">${hs.length ? hs.slice().reverse().map(h => harvestItem(h,false)).join("") : `<li style="display:block" class="empty">Aucun prélèvement enregistré.</li>`}</ul></div>`;
   $("#d-title").textContent = `Placette ${p}`;
   $("#d-body").innerHTML = body;
@@ -699,6 +724,7 @@ function measureItem(m){
   const c = circs(m);
   return `<li><div class="tag g">${m.plot}</div><div>
     <div class="t">${c.length ? c.map(fmt).join(" / ") + " cm" : "Sans circonférence"}</div>
+    ${elites(m).length ? `<div class="el" style="font-size:.92rem">Élite${elites(m).length>1?"s":""} : ${elites(m).map(fmt).join(" / ")} cm</div>` : ""}
     <div class="m">${fmtDate(m.date)}${m.count!=null ? `, ${m.count} érable${m.count>1?"s":""}` : ""}</div>
     ${m.note ? `<div class="n">${esc(m.note)}</div>` : ""}</div>
     <div class="act"><button class="icon" data-edit-m="${m.id}" aria-label="Modifier">${ICON_EDIT}</button><button class="icon" data-del-m="${m.id}" aria-label="Supprimer">${ICON_DEL}</button></div></li>`;
@@ -733,10 +759,10 @@ function fillPlotSelect(){ $("#m-plot").innerHTML = range(1,NPLOTS).map(p => `<o
 function updateRef(){
   const p = +$("#m-plot").value; const ms = measuresOf(p).filter(m => !editM || m.id!==editM);
   const lm = ms[ms.length-1];
-  $("#m-ref").textContent = lm ? `Dernière mesure le ${fmtDate(lm.date)} : ${lm.count!=null ? lm.count + " érables, " : ""}${circs(lm).length ? circs(lm).map(fmt).join(" / ") + " cm" : "sans circonférence"}.` : `Première mesure de la placette ${p}.`;
+  $("#m-ref").textContent = lm ? `Dernière mesure le ${fmtDate(lm.date)} : ${lm.count!=null ? lm.count + " érables, " : ""}${circs(lm).length ? circs(lm).map(fmt).join(" / ") + " cm" : "sans circonférence"}${elites(lm).length ? `, élite${elites(lm).length>1?"s":""} ${elites(lm).map(fmt).join(" / ")} cm` : ""}.` : `Première mesure de la placette ${p}.`;
   if(!editM && $("#m-count").value==="" && lm && lm.count!=null) $("#m-count").value = lm.count;
 }
-function updateDia(){ ["c1","c2","c3"].forEach(k => { const v = parseFloat($("#m-"+k).value); $("#d-"+k).textContent = v>0 ? `Ø ${fmt(v/Math.PI)} cm` : ""; }); }
+function updateDia(){ ["c1","c2","c3","e1","e2","e3"].forEach(k => { const v = parseFloat($("#m-"+k).value); $("#d-"+k).textContent = v>0 ? `Ø ${fmt(v/Math.PI)} cm` : ""; }); }
 function resetMForm(keepDate){
   const d = $("#m-date").value; $("#mform").reset(); $("#m-date").value = keepDate && d ? d : today();
   editM = null; $("#mform-title").textContent = "Nouvelle mesure"; $("#m-cancel").hidden = true; $("#m-save-next").hidden = false; updateDia();
@@ -752,6 +778,7 @@ function editMeasure(id){
   go("mesurer"); editM = id;
   $("#m-date").value = m.date; $("#m-plot").value = m.plot; $("#m-count").value = m.count ?? "";
   const c = circs(m); ["c1","c2","c3"].forEach((k,i) => $("#m-"+k).value = c[i] ?? "");
+  const el = elites(m); ["e1","e2","e3"].forEach((k,i) => $("#m-"+k).value = el[i] ?? "");
   $("#m-note").value = m.note || ""; $("#mform-title").textContent = `Modifier la mesure, placette ${m.plot}`;
   $("#m-cancel").hidden = false; $("#m-save-next").hidden = true; updateRef(); updateDia();
   window.scrollTo({top:0});
@@ -768,7 +795,11 @@ $("#mform").addEventListener("submit", e => {
   if(c.some(v => isNaN(v) || v<=0 || v>400)){ toast("Circonférence invalide : saisissez des centimètres (ex. 62)."); return; }
   if(c.length > count){ toast(`${c.length} circonférences pour ${count} érable${count>1?"s":""} : vérifiez le nombre d'arbres.`); return; }
   c.sort((a,b)=>b-a);
-  const rec = {date, plot, count, c, note:$("#m-note").value.trim()};
+  const el = ["e1","e2","e3"].map(k => $("#m-"+k).value.trim()).filter(v => v!=="").map(Number);
+  if(el.some(v => isNaN(v) || v<=0 || v>400)){ toast("Circonférence d'élite invalide : saisissez des centimètres."); return; }
+  if(el.length > count){ toast(`${el.length} élites pour ${count} érable${count>1?"s":""} : vérifiez le nombre d'arbres.`); return; }
+  el.sort((a,b)=>b-a);
+  const rec = {date, plot, count, c, e:el, note:$("#m-note").value.trim()};
   if(editM){ const i = db.measures.findIndex(x => x.id===editM); db.measures[i] = {...db.measures[i], ...rec}; toast(`Mesure modifiée, placette ${plot}.`); }
   else { db.measures.push({id:uid(), ...rec}); toast(`Mesure enregistrée, placette ${plot}.`); }
   save(); resetMForm(true);
@@ -779,7 +810,7 @@ $("#mform").addEventListener("submit", e => {
 $("#m-cancel").addEventListener("click", () => { resetMForm(false); updateRef(); });
 $("#m-plot").addEventListener("change", () => { $("#m-count").value = ""; updateRef(); });
 $$("[data-step]").forEach(b => b.addEventListener("click", () => { const i = $("#m-count"); const v = (parseInt(i.value)||0) + (+b.dataset.step); i.value = Math.max(0, Math.min(PLANTED, v)); }));
-["c1","c2","c3"].forEach(k => $("#m-"+k).addEventListener("input", updateDia));
+["c1","c2","c3","e1","e2","e3"].forEach(k => $("#m-"+k).addEventListener("input", updateDia));
 
 /* ---------- Formulaire prélèvements ---------- */
 let editH = null; let hSel = new Set();
@@ -812,7 +843,7 @@ function go(v){
   window.scrollTo({top:0});
 }
 $$("nav.tabs button").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
-$$(".seg button").forEach(b => b.addEventListener("click", () => { metric = b.dataset.metric; $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x===b)); renderMap(); }));
+$$("[data-metric]").forEach(b => b.addEventListener("click", () => { metric = b.dataset.metric; $$("[data-metric]").forEach(x => x.setAttribute("aria-pressed", x===b)); renderMap(); }));
 $("#map").addEventListener("click", e => { const g = e.target.closest(".plot"); if(g) openDetail(+g.dataset.plot); });
 $("#map").addEventListener("keydown", e => { if((e.key==="Enter"||e.key===" ") && e.target.closest(".plot")){ e.preventDefault(); openDetail(+e.target.closest(".plot").dataset.plot); } });
 $("#d-close").addEventListener("click", () => $("#detail").close());
@@ -848,8 +879,8 @@ $("#imp-file").addEventListener("change", async e => {
 const csvCell = v => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
 const num = v => v==null || v==="" ? "" : String(v).replace(".", ",");
 $("#exp-csv-m").addEventListener("click", () => {
-  const rows = [["Date","Placette","Nombre d'érables","C1 (cm)","C2 (cm)","C3 (cm)","Remarque"]].concat(
-    db.measures.slice().sort((a,b)=>byDate(a,b)||a.plot-b.plot).map(m => { const c = circs(m); return [m.date, m.plot, m.count ?? "", num(c[0]), num(c[1]), num(c[2]), m.note||""]; }));
+  const rows = [["Date","Placette","Nombre d'érables","C1 (cm)","C2 (cm)","C3 (cm)","Élite 1 (cm)","Élite 2 (cm)","Élite 3 (cm)","Remarque"]].concat(
+    db.measures.slice().sort((a,b)=>byDate(a,b)||a.plot-b.plot).map(m => { const c = circs(m), e = elites(m); return [m.date, m.plot, m.count ?? "", num(c[0]), num(c[1]), num(c[2]), num(e[0]), num(e[1]), num(e[2]), m.note||""]; }));
   download(`erabliere-mesures-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
 });
 $("#exp-csv-h").addEventListener("click", () => {
@@ -857,7 +888,7 @@ $("#exp-csv-h").addEventListener("click", () => {
   download(`erabliere-prelevements-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
 });
 $("#exp-csv-n").addEventListener("click", () => {
-  const rows = [["Date","Concerne","Type","Note"]].concat(db.notes.slice().sort(byDate).map(n => [n.date, n.plot ? "Placette "+n.plot : "Toute la parcelle", n.type==="intervention"?"Intervention":"Observation", n.text]));
+  const rows = [["Date","Concerne","Type","Note"]].concat(db.notes.slice().sort(byDate).map(n => [n.date, plotsLabel(n.plots), n.type==="intervention"?"Intervention":"Observation", n.text]));
   download(`erabliere-carnet-${today()}.csv`, "\ufeff" + rows.map(r => r.map(csvCell).join(";")).join("\n"), "text/csv");
 });
 $("#reset").addEventListener("click", () => { if(confirm("Effacer toutes les mesures et notes et revenir aux données d'origine ? Pensez à exporter une sauvegarde avant.")){ db = fresh(); save(); resetMForm(false); resetHForm(); resetNForm(); renderAll(); toast("Données réinitialisées."); } });
